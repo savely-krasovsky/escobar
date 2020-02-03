@@ -1,0 +1,33 @@
+Changes with Escobar 2.2.0, 28 January 2020
+    *) Change: Windows now require only few arguments
+    *) Bugfix: Initialization logic changed, start is improved
+    *) Bugfix: Tests now should not fail sometimes
+    *) Bugfix: ENOTCONN error is now ignored
+
+Changes with Escobar 2.1.1, 14 January 2020
+    *) Bugfix: copier now don't lose error messages
+
+Changes with Escobar 2.1.0, 14 January 2020
+    *) Feature: keytab-file support (see README for the more details)
+    *) Bugfix: new default http-proxy logger, less verbose
+
+Changes with Escobar 2.0.1, 13 December 2019
+    *) Feature: basic Makefile support
+    *) Feature: version bypassing
+    *) Change: error handling added in static routes
+    *) Bugfix: error handling after hijacking fix
+
+Changes with Escobar 2.0.0, 13 December 2019
+    *) Change: tons of internal changes
+    *) Change: kingpin changed to go-flags as more simple solution
+    *) Change: OpenSource preparations: project name changed, company name removed from everywhere,
+       company-specific hard-code fully removed and now is configurable
+    *) Change: CheckAuth() reworked and now pings real URL
+    *) Change: Try to reconnect if downstream proxy server responding 407 and immediately drops connection
+    *) Change: Half-close TCP support during CONNECT pumping
+    *) Feature: Server, Client and Downstream Proxy Timeouts now are configurable
+    *) Feature: some tests added
+    *) Bugfix: tons of bugfixes
+
+Changes with Escobar 1.0.0, 02 December 2019
+    *) Initial testing version

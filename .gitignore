@@ -1,0 +1,9 @@
+# Goland (IDEA)
+.idea
+
+# Personal testing config
+configs/keytabs/personal.keytab
+configs/personal.env
+
+# Binaries
+bin/

@@ -1,0 +1,24 @@
+image: golang:1.13
+
+before_script:
+  - cd $CI_PROJECT_DIR
+
+stages:
+  - test
+  - build
+
+lint:
+  image: golangci/golangci-lint:v1.23.2
+  stage: test
+  script: make lint
+
+unit tests:
+  stage: test
+  script: make test
+
+try to build:
+  stage: build
+  script: make cross-build
+  artifacts:
+    paths:
+      - bin
