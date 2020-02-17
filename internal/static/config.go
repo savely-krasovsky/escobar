@@ -7,6 +7,7 @@ package static
 import "net"
 
 type Config struct {
+	Enabled    bool         `short:"s" long:"enabled" env:"ENABLED" description:"Static server switch"`
 	AddrString string       `long:"addr" env:"ADDR" description:"Static server address" default:"localhost:3129"`
 	Addr       *net.TCPAddr `no-flag:"yes"`
 }

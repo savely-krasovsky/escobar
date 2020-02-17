@@ -40,30 +40,30 @@ func Parse() (*Config, error) {
 
 	p := flags.NewParser(&config, flags.HelpFlag|flags.PassDoubleDash)
 	// Windows uses SSPI by default, so there is no need to required username
-	//if runtime.GOOS == "windows" {
-	switchRequired := func() {
-		if user := p.FindOptionByLongName("proxy.downstream-proxy-auth.user"); user != nil {
-			user.Required = !user.Required
+	if runtime.GOOS == "windows" {
+		switchRequired := func() {
+			if user := p.FindOptionByLongName("proxy.downstream-proxy-auth.user"); user != nil {
+				user.Required = !user.Required
+			}
+			if kdc := p.FindOptionByLongName("proxy.kerberos.kdc"); kdc != nil {
+				kdc.Required = !kdc.Required
+			}
+			if realm := p.FindOptionByLongName("proxy.kerberos.realm"); realm != nil {
+				realm.Required = !realm.Required
+			}
 		}
-		if kdc := p.FindOptionByLongName("proxy.kerberos.kdc"); kdc != nil {
-			kdc.Required = !kdc.Required
-		}
-		if realm := p.FindOptionByLongName("proxy.kerberos.realm"); realm != nil {
-			realm.Required = !realm.Required
+
+		switchRequired()
+
+		// If manual mode is on, turn required fields again;
+		// This is bad, but go-flags library hasn't p.AddOption() method
+		// ref: https://github.com/jessevdk/go-flags/issues/195
+		for _, arg := range os.Args {
+			if arg == "-m" || arg == "/m" || strings.Contains(arg, "proxy.manual-mode") {
+				switchRequired()
+			}
 		}
 	}
-
-	switchRequired()
-
-	// If manual mode is on, turn required fields again;
-	// This is bad, but go-flags library hasn't p.AddOption() method
-	// ref: https://github.com/jessevdk/go-flags/issues/195
-	for _, arg := range os.Args {
-		if arg == "-m" || arg == "/m" || strings.Contains(arg, "proxy.manual-mode") {
-			switchRequired()
-		}
-	}
-	//}
 
 	_, err := p.ParseArgs(os.Args)
 	if err != nil {

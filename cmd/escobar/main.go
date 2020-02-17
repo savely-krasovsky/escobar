@@ -88,10 +88,10 @@ func main() {
 		krb5cl = initKbr5()
 	}
 
-	p := proxy.NewProxy(logger, config.Proxy, krb5cl)
-	s := static.NewStatic(logger, config.Static, config.Proxy)
-
 	shutdown := make(chan error, 1)
+
+	// Proxy server
+	p := proxy.NewProxy(logger, config.Proxy, krb5cl)
 
 	l, err := p.Listen()
 	if err != nil {
@@ -102,9 +102,14 @@ func main() {
 		shutdown <- p.Serve(l)
 	}(shutdown)
 
-	go func(shutdown chan<- error) {
-		shutdown <- s.ListenAndServe()
-	}(shutdown)
+	// Static server
+	s := static.NewStatic(logger, config.Static, config.Proxy)
+
+	if config.Static.Enabled {
+		go func(shutdown chan<- error) {
+			shutdown <- s.ListenAndServe()
+		}(shutdown)
+	}
 
 	// Check auth against out real server
 	if ok, err := p.CheckAuth(); err == nil && ok {
@@ -138,8 +143,10 @@ func main() {
 	logger.Info("Stopping proxy...")
 
 	// Close static server first, it shouldn't have many open connections
-	if err := s.Shutdown(ctx); err != nil {
-		logger.Error("Error shutting down the static server!", zap.Error(err))
+	if config.Static.Enabled {
+		if err := s.Shutdown(ctx); err != nil {
+			logger.Error("Error shutting down the static server!", zap.Error(err))
+		}
 	}
 
 	if err := p.Shutdown(ctx); err != nil {
