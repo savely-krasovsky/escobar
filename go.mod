@@ -3,7 +3,7 @@ module github.com/L11R/escobar
 go 1.13
 
 require (
-	bou.ke/monkey v1.0.1
+	bou.ke/monkey v1.0.2
 	github.com/L11R/httputil v0.0.0-20191119211137-5160d9701953
 	github.com/alexbrainman/sspi v0.0.0-20180613141037-e580b900e9f5
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484
