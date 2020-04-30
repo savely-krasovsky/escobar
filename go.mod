@@ -11,7 +11,7 @@ require (
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/jcmturner/gokrb5/v8 v8.0.0
 	github.com/jessevdk/go-flags v1.4.1-0.20181221193153-c0795c8afcf4
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	go.uber.org/atomic v1.5.1 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0
