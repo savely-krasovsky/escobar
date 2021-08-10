@@ -12,5 +12,5 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.2
 	github.com/jessevdk/go-flags v1.4.1-0.20181221193153-c0795c8afcf4
 	github.com/stretchr/testify v1.7.0
-	go.uber.org/zap v1.18.1
+	go.uber.org/zap v1.19.0
 )
