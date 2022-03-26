@@ -2,6 +2,7 @@
 // Use of this source code is governed by the Apache 2.0
 // license that can be found in the LICENSE file.
 
+//go:build !windows
 // +build !windows
 
 package proxy
@@ -29,6 +30,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 				User:     "test_user",
 				Password: "test_password",
 			},
+			Mode: SSPIMode,
 		},
 		&client.Client{},
 	)
@@ -50,7 +52,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
-	p.config.BasicMode = true
+	p.config.Mode = BasicMode
 
 	t.Run("basic mode", func(t *testing.T) {
 		expected := "Basic dGVzdF91c2VyOnRlc3RfcGFzc3dvcmQ="

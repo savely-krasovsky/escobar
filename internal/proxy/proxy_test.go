@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	})
 
 	go func() {
-		log.Fatal(http.ListenAndServe(":9090", proxy))
+		log.Fatal(http.ListenAndServe("localhost:9090", proxy))
 	}()
 
 	exitCode := m.Run()
@@ -153,9 +153,8 @@ func TestProxy_CheckAuth(t *testing.T) {
 				KeepAlivePeriod: 1 * time.Minute,
 			},
 		},
-		PingURL:    httpPingURL,
-		ManualMode: true,
-		BasicMode:  true,
+		PingURL: httpPingURL,
+		Mode:    BasicMode,
 	}
 
 	p := NewProxy(logger, config, nil)

@@ -22,36 +22,43 @@ const krb5conf = `[libdefaults]
     kdc = {{.KDC.String}}
   }`
 
+type Mode string
+
+const (
+	SSPIMode   Mode = "sspi"
+	ManualMode Mode = "manual"
+	BasicMode  Mode = "basic"
+)
+
 type Config struct {
-	AddrString string       `short:"a" long:"addr" env:"ADDR" description:"Proxy address" default:"localhost:3128"`
-	Addr       *net.TCPAddr `no-flag:"yes"`
+	AddrString string       `short:"a" long:"addr" env:"ADDR" description:"Proxy address" default:"localhost:3128" json:"addrString"`
+	Addr       *net.TCPAddr `no-flag:"yes" json:"-"`
 
-	DownstreamProxyURLString string   `short:"d" long:"downstream-proxy-url" env:"DOWNSTREAM_PROXY_URL" description:"Downstream proxy URL" value-name:"http://proxy.evil.corp:9090" required:"yes"`
-	DownstreamProxyURL       *url.URL `no-flag:"yes"`
+	DownstreamProxyURLString string   `short:"d" long:"downstream-proxy-url" env:"DOWNSTREAM_PROXY_URL" description:"Downstream proxy URL" value-name:"http://proxy.evil.corp:9090" required:"yes" json:"downstreamProxyURLString"`
+	DownstreamProxyURL       *url.URL `no-flag:"yes" json:"-"`
 
-	DownstreamProxyAuth DownstreamProxyAuth `group:"Downstream Proxy authentication" namespace:"downstream-proxy-auth" env-namespace:"DOWNSTREAM_PROXY_AUTH"`
+	DownstreamProxyAuth DownstreamProxyAuth `group:"Downstream Proxy authentication" namespace:"downstream-proxy-auth" env-namespace:"DOWNSTREAM_PROXY_AUTH" json:"downstreamProxyAuth"`
 
-	Kerberos Kerberos `group:"Kerberos options" namespace:"kerberos" env-namespace:"KERBEROS"`
-	Timeouts Timeouts `group:"Timeouts" namespace:"timeouts" env-namespace:"TIMEOUTS"`
+	Kerberos Kerberos `group:"Kerberos options" namespace:"kerberos" env-namespace:"KERBEROS" json:"kerberos"`
+	Timeouts Timeouts `group:"Timeouts" namespace:"timeouts" env-namespace:"TIMEOUTS" json:"timeouts"`
 
-	PingURLString string   `long:"ping-url" env:"PING_URL" description:"URL to ping anc check credentials validity" default:"https://www.google.com/"`
-	PingURL       *url.URL `no-flag:"yes"`
+	PingURLString string   `long:"ping-url" env:"PING_URL" description:"URL to ping anc check credentials validity" default:"https://www.google.com/" json:"pingURLString"`
+	PingURL       *url.URL `no-flag:"yes" json:"-"`
 
-	BasicMode  bool `short:"b" long:"basic-mode" env:"BASIC_MODE" description:"Basic authorization mode (do not use if Kerberos works for you)"`
-	ManualMode bool `short:"m" long:"manual-mode" env:"MANUAL_MODE" description:"Turns off Windows SSPI (which is enabled by default)"`
+	Mode Mode `short:"m" long:"mode" env:"MODE" description:"Escobar mode" default:"sspi" json:"mode"`
 }
 
 type DownstreamProxyAuth struct {
-	User     string `short:"u" long:"user" env:"USER" description:"Downstream Proxy user" required:"yes"`
-	Password string `short:"p" long:"password" env:"PASSWORD" description:"Downstream Proxy password"`
-	Keytab   string `short:"k" long:"keytab" env:"KEYTAB" description:"Downstream Proxy path to keytab-file"`
+	User     string `short:"u" long:"user" env:"USER" description:"Downstream Proxy user" json:"user"`
+	Password string `short:"p" long:"password" env:"PASSWORD" description:"Downstream Proxy password" json:"password"`
+	Keytab   string `short:"k" long:"keytab" env:"KEYTAB" description:"Downstream Proxy path to keytab-file" json:"keytab"`
 }
 
 type Kerberos struct {
-	Realm string `long:"realm" env:"REALM" description:"Kerberos realm" required:"yes" value-name:"EVIL.CORP"`
+	Realm string `long:"realm" env:"REALM" description:"Kerberos realm" value-name:"EVIL.CORP" json:"realm"`
 
-	KDCString string       `long:"kdc" env:"KDC_ADDR" description:"Key Distribution Center (KDC) address" required:"yes" value-name:"kdc.evil.corp:88"`
-	KDC       *net.TCPAddr `no-flag:"yes"`
+	KDCString string       `long:"kdc" env:"KDC_ADDR" description:"Key Distribution Center (KDC) address" value-name:"kdc.evil.corp:88" json:"KDCString"`
+	KDC       *net.TCPAddr `no-flag:"yes" json:"-"`
 }
 
 func (k *Kerberos) Reader() (io.Reader, error) {
@@ -69,27 +76,27 @@ func (k *Kerberos) Reader() (io.Reader, error) {
 }
 
 type Timeouts struct {
-	Server          ServerTimeouts          `group:"Server timeouts" namespace:"server" env-namespace:"SERVER"`
-	Client          ClientTimeouts          `group:"Client timeouts" namespace:"client" env-namespace:"CLIENT"`
-	DownstreamProxy DownstreamProxyTimeouts `group:"Downstream Proxy timeouts" namespace:"downstream" env-namespace:"DOWNSTREAM"`
+	Server          ServerTimeouts          `group:"Server timeouts" namespace:"server" env-namespace:"SERVER" json:"server"`
+	Client          ClientTimeouts          `group:"Client timeouts" namespace:"client" env-namespace:"CLIENT" json:"client"`
+	DownstreamProxy DownstreamProxyTimeouts `group:"Downstream Proxy timeouts" namespace:"downstream" env-namespace:"DOWNSTREAM" json:"downstreamProxy"`
 }
 
 type ServerTimeouts struct {
-	ReadTimeout       time.Duration `long:"read" env:"READ" default:"0s" description:"HTTP server read timeout"`
-	ReadHeaderTimeout time.Duration `long:"read-header" env:"READ_HEADER" default:"30s" description:"HTTP server read header timeout"`
-	WriteTimeout      time.Duration `long:"write" env:"WRITE" default:"0s" description:"HTTP server write timeout"`
-	IdleTimeout       time.Duration `long:"idle" env:"IDLE" default:"1m" description:"HTTP server idle timeout"`
+	ReadTimeout       time.Duration `long:"read" env:"READ" default:"0s" description:"HTTP server read timeout" json:"readTimeout"`
+	ReadHeaderTimeout time.Duration `long:"read-header" env:"READ_HEADER" default:"30s" description:"HTTP server read header timeout" json:"readHeaderTimeout"`
+	WriteTimeout      time.Duration `long:"write" env:"WRITE" default:"0s" description:"HTTP server write timeout" json:"writeTimeout"`
+	IdleTimeout       time.Duration `long:"idle" env:"IDLE" default:"1m" description:"HTTP server idle timeout" json:"idleTimeout"`
 }
 
 type ClientTimeouts struct {
-	ReadTimeout     time.Duration `long:"read" env:"READ" default:"0s" description:"Client read timeout"`
-	WriteTimeout    time.Duration `long:"write" env:"WRITE" default:"0s" description:"Client write timeout"`
-	KeepAlivePeriod time.Duration `long:"keepalive-period" env:"KEEPALIVE_PERIOD" default:"1m" description:"Client keepalive period"`
+	ReadTimeout     time.Duration `long:"read" env:"READ" default:"0s" description:"Client read timeout" json:"readTimeout"`
+	WriteTimeout    time.Duration `long:"write" env:"WRITE" default:"0s" description:"Client write timeout" json:"writeTimeout"`
+	KeepAlivePeriod time.Duration `long:"keepalive-period" env:"KEEPALIVE_PERIOD" default:"1m" description:"Client keepalive period" json:"keepAlivePeriod"`
 }
 
 type DownstreamProxyTimeouts struct {
-	DialTimeout     time.Duration `long:"dial" env:"DIAL" default:"10s" description:"Downstream proxy dial timeout"`
-	ReadTimeout     time.Duration `long:"read" env:"READ" default:"0s" description:"Downstream proxy read timeout"`
-	WriteTimeout    time.Duration `long:"write" env:"WRITE" default:"0s" description:"Downstream proxy write timeout"`
-	KeepAlivePeriod time.Duration `long:"keepalive-period" env:"KEEPALIVE_PERIOD" default:"1m" description:"Downstream proxy keepalive period"`
+	DialTimeout     time.Duration `long:"dial" env:"DIAL" default:"10s" description:"Downstream proxy dial timeout" json:"dialTimeout"`
+	ReadTimeout     time.Duration `long:"read" env:"READ" default:"0s" description:"Downstream proxy read timeout" json:"readTimeout"`
+	WriteTimeout    time.Duration `long:"write" env:"WRITE" default:"0s" description:"Downstream proxy write timeout" json:"writeTimeout"`
+	KeepAlivePeriod time.Duration `long:"keepalive-period" env:"KEEPALIVE_PERIOD" default:"1m" description:"Downstream proxy keepalive period" json:"keepAlivePeriod"`
 }

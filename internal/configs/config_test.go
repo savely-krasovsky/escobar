@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/L11R/escobar/internal/proxy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,7 +115,7 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, "EVIL.CORP", config.Proxy.Kerberos.Realm)
 			assert.Equal(t, "10.0.0.1:88", config.Proxy.Kerberos.KDC.String())
 			assert.Equal(t, "https://www.google.com/", config.Proxy.PingURL.String())
-			assert.Equal(t, true, config.Proxy.ManualMode)
+			assert.Equal(t, proxy.SSPIMode, config.Proxy.Mode)
 		})
 	})
 }

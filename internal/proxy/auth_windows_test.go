@@ -2,6 +2,7 @@
 // Use of this source code is governed by the Apache 2.0
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 package proxy
@@ -17,6 +18,7 @@ import (
 	"github.com/jcmturner/gokrb5/v8/client"
 	"github.com/jcmturner/gokrb5/v8/spnego"
 	"github.com/stretchr/testify/assert"
+	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 )
 
@@ -31,6 +33,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 				User:     "test_user",
 				Password: "test_password",
 			},
+			Mode: SSPIMode,
 		},
 		&client.Client{},
 	)
@@ -40,7 +43,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 	t.Run("default windows sspi", func(t *testing.T) {
 		expected := "Negotiate d2luZG93c19zc3BpX2tlcmJlcm9zX3Rlc3RfdG9rZW4="
 
-		patch1 := monkey.Patch(negotiate.AcquireCurrentUserCredentials, func() (*sspi.Credentials, error) {
+		patch1, err := mpatch.PatchMethod(negotiate.AcquireCurrentUserCredentials, func() (*sspi.Credentials, error) {
 			return &sspi.Credentials{
 				Handle: sspi.CredHandle{
 					Lower: 0,
@@ -48,10 +51,16 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 				},
 			}, nil
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer patch1.Unpatch()
-		patch2 := monkey.Patch(negotiate.NewClientContext, func(cred *sspi.Credentials, targetName string) (cc *negotiate.ClientContext, outputToken []byte, err error) {
+		patch2, err := mpatch.PatchMethod(negotiate.NewClientContext, func(cred *sspi.Credentials, targetName string) (cc *negotiate.ClientContext, outputToken []byte, err error) {
 			return nil, []byte("windows_sspi_kerberos_test_token"), nil
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer patch2.Unpatch()
 
 		if err := p.setProxyAuthorizationHeader(req); err != nil {
@@ -62,7 +71,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
-	p.config.ManualMode = true
+	p.config.Mode = ManualMode
 
 	t.Run("kerberos", func(t *testing.T) {
 		expected := "Negotiate a2VyYmVyb3NfdGVzdF90b2tlbg=="
@@ -80,7 +89,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	})
 
-	p.config.BasicMode = true
+	p.config.Mode = BasicMode
 
 	t.Run("basic mode", func(t *testing.T) {
 		expected := "Basic dGVzdF91c2VyOnRlc3RfcGFzc3dvcmQ="

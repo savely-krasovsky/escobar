@@ -5,32 +5,39 @@
 package configs
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 
 	"github.com/L11R/escobar/internal/proxy"
 	"github.com/L11R/escobar/internal/static"
 	"github.com/L11R/escobar/internal/version"
+	"github.com/shibukawa/configdir"
 
 	"github.com/jessevdk/go-flags"
 )
 
 type Config struct {
-	Proxy  *proxy.Config  `group:"Proxy args" namespace:"proxy" env-namespace:"ESCOBAR_PROXY"`
-	Static *static.Config `group:"Static args" namespace:"static" env-namespace:"ESCOBAR_STATIC"`
+	Proxy  *proxy.Config  `group:"Proxy args" namespace:"proxy" env-namespace:"ESCOBAR_PROXY" json:"proxy"`
+	Static *static.Config `group:"Static args" namespace:"static" env-namespace:"ESCOBAR_STATIC" json:"static"`
 
-	Verbose []bool `short:"v" long:"verbose" env:"ESCOBAR_VERBOSE" description:"Verbose logs"`
-	Version func() `short:"V" long:"version" description:"Escobar version"`
+	Install   bool `long:"install" description:"Install service" json:"-"`
+	Uninstall bool `long:"uninstall" description:"Uninstall service" json:"-"`
+
+	Verbose []bool `short:"v" long:"verbose" env:"ESCOBAR_VERBOSE" description:"Verbose logs" json:"verbose"`
+	Version func() `short:"V" long:"version" description:"Escobar version" json:"-"`
 }
 
 // Parse returns *Config parsed from command line arguments.
 func Parse() (*Config, error) {
-	var config Config
+	var (
+		config Config
+		err    error
+	)
 
 	// Print Escobar version if -V is passed
 	config.Version = func() {
@@ -39,34 +46,46 @@ func Parse() (*Config, error) {
 	}
 
 	p := flags.NewParser(&config, flags.HelpFlag|flags.PassDoubleDash)
-	// Windows uses SSPI by default, so there is no need to required username
-	//if runtime.GOOS == "windows" {
-	switchRequired := func() {
-		if user := p.FindOptionByLongName("proxy.downstream-proxy-auth.user"); user != nil {
-			user.Required = !user.Required
+	if _, err = p.Parse(); err != nil {
+		err, ok := err.(*flags.Error)
+		if !ok {
+			return nil, err
 		}
-		if kdc := p.FindOptionByLongName("proxy.kerberos.kdc"); kdc != nil {
-			kdc.Required = !kdc.Required
-		}
-		if realm := p.FindOptionByLongName("proxy.kerberos.realm"); realm != nil {
-			realm.Required = !realm.Required
+
+		if !errors.Is(err.Type, flags.ErrRequired) {
+			return nil, err
 		}
 	}
 
-	switchRequired()
+	// Various modes require various options
+	user := p.FindOptionByLongName("proxy.downstream-proxy-auth.user")
+	password := p.FindOptionByLongName("proxy.downstream-proxy-auth.password")
+	kdc := p.FindOptionByLongName("proxy.kerberos.kdc")
+	realm := p.FindOptionByLongName("proxy.kerberos.realm")
 
-	// If manual mode is on, turn required fields again;
-	// This is bad, but go-flags library hasn't p.AddOption() method
-	// ref: https://github.com/jessevdk/go-flags/issues/195
-	for _, arg := range os.Args {
-		if arg == "-m" || arg == "/m" || strings.Contains(arg, "proxy.manual-mode") {
-			switchRequired()
-		}
+	switch config.Proxy.Mode {
+	case proxy.SSPIMode:
+		// does not require anything
+	case proxy.ManualMode:
+		user.Required = true
+		kdc.Required = true
+		realm.Required = true
+	case proxy.BasicMode:
+		user.Required = true
+		password.Required = true
 	}
-	//}
 
-	_, err := p.ParseArgs(os.Args)
-	if err != nil {
+	// Try to read config, otherwise try to parse again
+	configDirs := configdir.New("Escobar", "Escobar")
+	configDirs.LocalPath, _ = filepath.Abs(".")
+	folder := configDirs.QueryFolderContainsFile("settings.json")
+	if folder != nil && len(os.Args) == 1 {
+		data, _ := folder.ReadFile("settings.json")
+		if err := json.Unmarshal(data, &config); err != nil {
+			fmt.Printf("Invalid config file: %v\n", err)
+			os.Exit(1)
+		}
+	} else if _, err := p.Parse(); err != nil {
 		return nil, err
 	}
 
@@ -87,40 +106,11 @@ func Parse() (*Config, error) {
 	}
 
 	// Windows has different right management model
-	if runtime.GOOS == "windows" {
-		if config.Proxy.ManualMode {
-			if config.Proxy.DownstreamProxyAuth.Password == "" && config.Proxy.DownstreamProxyAuth.Keytab == "" {
-				return nil, fmt.Errorf("you should pass path keytab-file or at least password")
-			}
-		}
-	} else {
-		if config.Proxy.DownstreamProxyAuth.Password == "" && config.Proxy.DownstreamProxyAuth.Keytab == "" {
-			return nil, fmt.Errorf("you should pass path keytab-file or at least password")
-		}
-
-		// Check keytab directory and file rights, it MUST NOT be too permissive
-		if config.Proxy.DownstreamProxyAuth.Keytab != "" {
-			dirInfo, err := os.Stat(filepath.Dir(config.Proxy.DownstreamProxyAuth.Keytab))
-			if err != nil {
-				return nil, fmt.Errorf("cannot get dir stats: %w", err)
-			}
-
-			if m := dirInfo.Mode(); m.Perm() != os.FileMode(0700) {
-				return nil, fmt.Errorf("keytab directory rights are too permissive")
-			}
-
-			fileInfo, err := os.Stat(config.Proxy.DownstreamProxyAuth.Keytab)
-			if err != nil {
-				return nil, fmt.Errorf("cannot get file stats: %w", err)
-			}
-
-			if m := fileInfo.Mode(); m.Perm() != os.FileMode(0600) {
-				return nil, fmt.Errorf("keytab file rights are too permissive")
-			}
-		}
+	if err := config.CheckCredentials(); err != nil {
+		return nil, err
 	}
 
-	if !config.Proxy.BasicMode {
+	if config.Proxy.Mode == proxy.ManualMode {
 		config.Proxy.Kerberos.KDC, err = net.ResolveTCPAddr("tcp", config.Proxy.Kerberos.KDCString)
 		if err != nil {
 			return nil, fmt.Errorf("cannot resolve KDC address: %w", err)

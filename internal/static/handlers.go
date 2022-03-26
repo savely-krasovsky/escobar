@@ -14,7 +14,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 const pacFile = `function FindProxyForURL(url, host) {
