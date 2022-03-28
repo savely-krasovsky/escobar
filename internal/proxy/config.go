@@ -25,16 +25,16 @@ const krb5conf = `[libdefaults]
 type Mode string
 
 const (
-	SSPIMode   Mode = "sspi"
+	AutoMode   Mode = "auto"
 	ManualMode Mode = "manual"
 	BasicMode  Mode = "basic"
 )
 
 type Config struct {
-	AddrString string       `short:"a" long:"addr" env:"ADDR" description:"Proxy address" default:"localhost:3128" json:"addrString"`
+	AddrString string       `short:"a" long:"addr" env:"ADDR" description:"Proxy address" default:"localhost:3128" json:"addr"`
 	Addr       *net.TCPAddr `no-flag:"yes" json:"-"`
 
-	DownstreamProxyURLString string   `short:"d" long:"downstream-proxy-url" env:"DOWNSTREAM_PROXY_URL" description:"Downstream proxy URL" value-name:"http://proxy.evil.corp:9090" required:"yes" json:"downstreamProxyURLString"`
+	DownstreamProxyURLString string   `short:"d" long:"downstream-proxy-url" env:"DOWNSTREAM_PROXY_URL" description:"Downstream proxy URL" value-name:"http://proxy.evil.corp:9090" required:"yes" json:"downstreamProxyURL"`
 	DownstreamProxyURL       *url.URL `no-flag:"yes" json:"-"`
 
 	DownstreamProxyAuth DownstreamProxyAuth `group:"Downstream Proxy authentication" namespace:"downstream-proxy-auth" env-namespace:"DOWNSTREAM_PROXY_AUTH" json:"downstreamProxyAuth"`
@@ -42,10 +42,10 @@ type Config struct {
 	Kerberos Kerberos `group:"Kerberos options" namespace:"kerberos" env-namespace:"KERBEROS" json:"kerberos"`
 	Timeouts Timeouts `group:"Timeouts" namespace:"timeouts" env-namespace:"TIMEOUTS" json:"timeouts"`
 
-	PingURLString string   `long:"ping-url" env:"PING_URL" description:"URL to ping anc check credentials validity" default:"https://www.google.com/" json:"pingURLString"`
+	PingURLString string   `long:"ping-url" env:"PING_URL" description:"URL to ping anc check credentials validity" default:"https://www.google.com/" json:"pingURL"`
 	PingURL       *url.URL `no-flag:"yes" json:"-"`
 
-	Mode Mode `short:"m" long:"mode" env:"MODE" description:"Escobar mode" default:"sspi" json:"mode"`
+	Mode Mode `short:"m" long:"mode" env:"MODE" description:"Escobar mode" default:"auto" json:"mode"`
 }
 
 type DownstreamProxyAuth struct {
@@ -57,7 +57,7 @@ type DownstreamProxyAuth struct {
 type Kerberos struct {
 	Realm string `long:"realm" env:"REALM" description:"Kerberos realm" value-name:"EVIL.CORP" json:"realm"`
 
-	KDCString string       `long:"kdc" env:"KDC_ADDR" description:"Key Distribution Center (KDC) address" value-name:"kdc.evil.corp:88" json:"KDCString"`
+	KDCString string       `long:"kdc" env:"KDC" description:"Key Distribution Center (KDC) address" value-name:"kdc.evil.corp:88" json:"kdc"`
 	KDC       *net.TCPAddr `no-flag:"yes" json:"-"`
 }
 

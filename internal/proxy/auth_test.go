@@ -2,9 +2,6 @@
 // Use of this source code is governed by the Apache 2.0
 // license that can be found in the LICENSE file.
 
-//go:build !windows
-// +build !windows
-
 package proxy
 
 import (
@@ -12,10 +9,10 @@ import (
 	"net/url"
 	"testing"
 
-	"bou.ke/monkey"
 	"github.com/jcmturner/gokrb5/v8/client"
 	"github.com/jcmturner/gokrb5/v8/spnego"
 	"github.com/stretchr/testify/assert"
+	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 )
 
@@ -30,25 +27,35 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 				User:     "test_user",
 				Password: "test_password",
 			},
-			Mode: SSPIMode,
+			Mode: AutoMode,
 		},
 		&client.Client{},
 	)
 
 	req, _ := http.NewRequest("GET", "https://www.google.com/", nil)
 
-	t.Run("default kerberos", func(t *testing.T) {
+	t.Run("auto", func(t *testing.T) {
+		// could not be monkey patched to test
+	})
+
+	p.config.Mode = ManualMode
+
+	t.Run("kerberos", func(t *testing.T) {
 		expected := "Negotiate a2VyYmVyb3NfdGVzdF90b2tlbg=="
-		patch := monkey.Patch(spnego.SetSPNEGOHeader, func(krb5cl *client.Client, req *http.Request, spn string) error {
+
+		patch, err := mpatch.PatchMethod(spnego.SetSPNEGOHeader, func(krb5cl *client.Client, req *http.Request, spn string) error {
 			req.Header.Set(spnego.HTTPHeaderAuthRequest, expected)
 			return nil
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 		defer patch.Unpatch()
 		if err := p.setProxyAuthorizationHeader(req); err != nil {
 			assert.NoError(t, err)
 		}
 
-		actual := req.Header.Get(ProxyAuthorization)
+		actual := req.Header.Get(HeaderProxyAuthorization)
 		assert.Equal(t, expected, actual)
 	})
 
@@ -56,11 +63,12 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 
 	t.Run("basic mode", func(t *testing.T) {
 		expected := "Basic dGVzdF91c2VyOnRlc3RfcGFzc3dvcmQ="
+
 		if err := p.setProxyAuthorizationHeader(req); err != nil {
 			assert.NoError(t, err)
 		}
 
-		actual := req.Header.Get(ProxyAuthorization)
+		actual := req.Header.Get(HeaderProxyAuthorization)
 		assert.Equal(t, expected, actual)
 	})
 }

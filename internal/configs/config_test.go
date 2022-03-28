@@ -25,7 +25,6 @@ func TestParse(t *testing.T) {
 				"-u", "ivanovii",
 				"-p", "Qwerty123",
 				"--proxy.kerberos.realm", "EVIL.CORP",
-				"--proxy.kerberos.kdc", "10.0.0.1:88",
 				"--proxy.ping-url", "https://www.google.com/",
 				"--proxy.timeouts.server.read", "10s",
 				"--proxy.timeouts.server.read-header", "130s",
@@ -50,7 +49,6 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, "ivanovii", config.Proxy.DownstreamProxyAuth.User)
 			assert.Equal(t, "Qwerty123", config.Proxy.DownstreamProxyAuth.Password)
 			assert.Equal(t, "EVIL.CORP", config.Proxy.Kerberos.Realm)
-			assert.Equal(t, "10.0.0.1:88", config.Proxy.Kerberos.KDC.String())
 			assert.Equal(t, "https://www.google.com/", config.Proxy.PingURL.String())
 			assert.Equal(t, 10*time.Second, config.Proxy.Timeouts.Server.ReadTimeout)
 			assert.Equal(t, 130*time.Second, config.Proxy.Timeouts.Server.ReadHeaderTimeout)
@@ -75,7 +73,6 @@ func TestParse(t *testing.T) {
 				"--proxy.downstream-proxy-auth.user", "ivanovii",
 				"--proxy.downstream-proxy-auth.password", "Qwerty123",
 				"--proxy.kerberos.realm", "EVIL.CORP",
-				"--proxy.kerberos.kdc", "10.0.0.1:88",
 			}
 
 			config, err := Parse()
@@ -87,7 +84,6 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, "ivanovii", config.Proxy.DownstreamProxyAuth.User)
 			assert.Equal(t, "Qwerty123", config.Proxy.DownstreamProxyAuth.Password)
 			assert.Equal(t, "EVIL.CORP", config.Proxy.Kerberos.Realm)
-			assert.Equal(t, "10.0.0.1:88", config.Proxy.Kerberos.KDC.String())
 			assert.Equal(t, "https://www.google.com/", config.Proxy.PingURL.String())
 		})
 
@@ -101,7 +97,7 @@ func TestParse(t *testing.T) {
 				"--proxy.downstream-proxy-auth.password", "Qwerty123",
 				"--proxy.kerberos.realm", "EVIL.CORP",
 				"--proxy.kerberos.kdc", "10.0.0.1:88",
-				"--proxy.manual-mode",
+				"--proxy.mode", "manual",
 			}
 
 			config, err := Parse()
@@ -115,7 +111,7 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, "EVIL.CORP", config.Proxy.Kerberos.Realm)
 			assert.Equal(t, "10.0.0.1:88", config.Proxy.Kerberos.KDC.String())
 			assert.Equal(t, "https://www.google.com/", config.Proxy.PingURL.String())
-			assert.Equal(t, proxy.SSPIMode, config.Proxy.Mode)
+			assert.Equal(t, proxy.ManualMode, config.Proxy.Mode)
 		})
 	})
 }

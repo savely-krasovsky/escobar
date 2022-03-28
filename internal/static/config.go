@@ -7,6 +7,6 @@ package static
 import "net"
 
 type Config struct {
-	AddrString string       `long:"addr" env:"ADDR" description:"Static server address" default:"localhost:3129" json:"addrString"`
+	AddrString string       `long:"addr" env:"ADDR" description:"Static server address" default:"localhost:3129" json:"addr"`
 	Addr       *net.TCPAddr `no-flag:"yes" json:"-"`
 }

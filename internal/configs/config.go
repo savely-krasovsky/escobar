@@ -25,8 +25,9 @@ type Config struct {
 	Proxy  *proxy.Config  `group:"Proxy args" namespace:"proxy" env-namespace:"ESCOBAR_PROXY" json:"proxy"`
 	Static *static.Config `group:"Static args" namespace:"static" env-namespace:"ESCOBAR_STATIC" json:"static"`
 
-	Install   bool `long:"install" description:"Install service" json:"-"`
-	Uninstall bool `long:"uninstall" description:"Uninstall service" json:"-"`
+	UseSystemLogger bool `short:"l" long:"syslog" description:"Enable system logger (syslog or Windows Event Log)" json:"useSystemLogger"`
+	Install         bool `long:"install" description:"Install service" json:"-"`
+	Uninstall       bool `long:"uninstall" description:"Uninstall service" json:"-"`
 
 	Verbose []bool `short:"v" long:"verbose" env:"ESCOBAR_VERBOSE" description:"Verbose logs" json:"verbose"`
 	Version func() `short:"V" long:"version" description:"Escobar version" json:"-"`
@@ -64,7 +65,7 @@ func Parse() (*Config, error) {
 	realm := p.FindOptionByLongName("proxy.kerberos.realm")
 
 	switch config.Proxy.Mode {
-	case proxy.SSPIMode:
+	case proxy.AutoMode:
 		// does not require anything
 	case proxy.ManualMode:
 		user.Required = true

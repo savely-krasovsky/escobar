@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	LogEntryCtx        = "log_entry"
-	ProxyAuthorization = "Proxy-Authorization"
+	LogEntryCtx              = "log_entry"
+	HeaderProxyAuthorization = "Proxy-Authorization"
 )
 
 type Proxy struct {
@@ -95,6 +95,9 @@ func (p *Proxy) CheckAuth() (bool, error) {
 		return false, fmt.Errorf("cannot set authorization header: %w", err)
 	}
 
+	repeat := true
+
+again:
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("cannot do request: %w", err)
@@ -104,6 +107,11 @@ func (p *Proxy) CheckAuth() (bool, error) {
 
 	if _, err := ioutil.ReadAll(resp.Body); err != nil {
 		return false, fmt.Errorf("cannot read body: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusProxyAuthRequired && repeat {
+		repeat = false
+		goto again
 	}
 
 	if resp.StatusCode == http.StatusOK {
