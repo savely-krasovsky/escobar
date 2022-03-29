@@ -8,66 +8,74 @@ OS like Android.
 Unlike `cntlm` it uses Kerberos-based authorization. It also supports Basic Authorization (as dedicated mode),
 this is useful while KDC is unavailable (e.g. while using VPN).
 
-As extra feature it deploys small static server with two routes:
+As an extra feature it deploys small static server with two routes:
 1. `GET /proxy.pac` — simple PAC-file (Proxy Auto-Configuration).
 2. `GET /ca.crt` — always actual root certificate. Useful during first setup to retrieve Man-In-The-Middle root
 certificate (corporate proxy in our case) and add it as trusted.
 
-### Compiling
-Escobar is usual Go-application. You need only Go compiler downloaded from [official site](https://golang.org/).
-```bash
-go build -o escobar cmd/escobar/main.go
-```
-
-Of course you can use cross-compiling:
-```bash
-# Linux
-GOOS=linux GOARCH=amd64 go build -o escobar cmd/escobar/main.go
-# macOS
-GOOS=darwin GOARCH=amd64 go build -o escobar cmd/escobar/main.go
-# Windows
-GOOS=windows GOARCH=amd64 go build -o escobar.exe cmd/escobar/main.go
-# ARM-based Android
-GOOS=android GOARCH=arm64 go build -o escobar cmd/escobar/main.go
-```
-
 ### Testing
-```bash
-cd ~/projects/escobar
-go test ./...
-```
-You need to turn off inlining to test it in Windows:
+Project uses monkey patching, so to test it you need to turn off inlining:
 ```bash
 go test -gcflags=-l ./...
 ```
 
 ### As service
-You can also (and most possibly will) turn utility into service. For example in Linux you could use `systemd`.
-Basic service config:
+Escobar could work as service as well. At first, you need to install it.
+```bash
+sudo escobar -d http://proxy.evil.corp:9090/ --install
 ```
-[Unit]
-Description=Escobar
-After=network-online.target
-Wants=network-online.target
+After installing service, it will create config file from CLI parameters:
 
-[Service]
-Type=simple
-User=escobar
-Group=escobar
-EnvironmentFile=-/etc/default/escobar
-WorkingDirectory=/opt/escobar
-ExecStart=/opt/escobar/escobar
-Restart=on-failure
+| Windows                                       | Linux/BSD                                                  | macOS                                                        |
+|-----------------------------------------------|------------------------------------------------------------|--------------------------------------------------------------|
+| `%PROGRAMDATA%\Escobar\Escobar\settings.json` | `${XDG_CONFIG_DIRS}/etc/xdg/Escobar/Escobar/settings.json` | `/Library/Application Support/Escobar/Escobar/settings.json` |
 
-[Install]
-WantedBy=multi-user.target
+`settings.json` file example:
+```json
+{
+	"proxy": {
+		"addr": "localhost:3128",
+		"downstreamProxyURL": "http://proxy.evil.corp:9090/",
+		"downstreamProxyAuth": {
+			"user": "",
+			"password": "",
+			"keytab": ""
+		},
+		"kerberos": {
+			"realm": "",
+			"kdc": ""
+		},
+		"timeouts": {
+			"server": {
+				"readTimeout": 0,
+				"readHeaderTimeout": 30000000000,
+				"writeTimeout": 0,
+				"idleTimeout": 60000000000
+			},
+			"client": {
+				"readTimeout": 0,
+				"writeTimeout": 0,
+				"keepAlivePeriod": 60000000000
+			},
+			"downstreamProxy": {
+				"dialTimeout": 10000000000,
+				"readTimeout": 0,
+				"writeTimeout": 0,
+				"keepAlivePeriod": 60000000000
+			}
+		},
+		"pingURL": "https://www.google.com/",
+		"mode": "auto"
+	},
+	"static": {
+		"addr": "localhost:3129"
+	},
+	"useSystemLogger": true,
+	"verbose": [
+		true
+	]
+}
 ```
-
-In this case utility will use environment variable from `/etc/default/escobar` file.
-You can check them out in `configs` package.
-
-In macOS you can use `launchd`. Check details in the 
-[official documentation](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html).
 
 ### Status
 This app provides as is and proper work could not be guaranteed.
@@ -80,53 +88,56 @@ Usage:
   escobar [OPTIONS]
 
 Application Options:
-  -v, --verbose                                                   Verbose logs [$ESCOBAR_VERBOSE]
-  -V, --version                                                   Escobar version
+  /l, /syslog                                                     Enable system logger (syslog or Windows Event Log)
+      /install                                                    Install service
+      /uninstall                                                  Uninstall service
+  /v, /verbose                                                    Verbose logs [%ESCOBAR_VERBOSE%]
+  /V, /version                                                    Escobar version
 
 Proxy args:
-  -a, --proxy.addr=                                               Proxy address (default: localhost:3128) [$ESCOBAR_PROXY_ADDR]
-  -d, --proxy.downstream-proxy-url=http://proxy.evil.corp:9090    Downstream proxy URL [$ESCOBAR_PROXY_DOWNSTREAM_PROXY_URL]
-      --proxy.ping-url=                                           URL to ping anc check credentials validity (default: https://www.google.com/) [$ESCOBAR_PROXY_PING_URL]
-  -b, --proxy.basic-mode                                          Basic authorization mode (do not use if Kerberos works for you) [$ESCOBAR_PROXY_BASIC_MODE]
-  -m, --proxy.manual-mode                                         Turns off Windows SSPI (which is enabled by default) [$ESCOBAR_PROXY_MANUAL_MODE]
+  /a, /proxy.addr:                                                Proxy address (default: localhost:3128) [%ESCOBAR_PROXY_ADDR%]
+  /d, /proxy.downstream-proxy-url:http://proxy.evil.corp:9090     Downstream proxy URL [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_URL%]
+      /proxy.ping-url:                                            URL to ping anc check credentials validity (default: https://www.google.com/) [%ESCOBAR_PROXY_PING_URL%]
+  /m, /proxy.mode:                                                Escobar mode (default: auto) [%ESCOBAR_PROXY_MODE%]
 
 Downstream Proxy authentication:
-  -u, --proxy.downstream-proxy-auth.user=                         Downstream Proxy user [$ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_USER]
-  -p, --proxy.downstream-proxy-auth.password=                     Downstream Proxy password [$ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_PASSWORD]
-  -k, --proxy.downstream-proxy-auth.keytab=                       Downstream Proxy path to keytab-file [$ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_KEYTAB]
+  /u, /proxy.downstream-proxy-auth.user:                          Downstream Proxy user [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_USER%]
+  /p, /proxy.downstream-proxy-auth.password:                      Downstream Proxy password [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_PASSWORD%]
+  /k, /proxy.downstream-proxy-auth.keytab:                        Downstream Proxy path to keytab-file [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_AUTH_KEYTAB%]
 
 Kerberos options:
-      --proxy.kerberos.realm=EVIL.CORP                            Kerberos realm [$ESCOBAR_PROXY_KERBEROS_REALM]
-      --proxy.kerberos.kdc=kdc.evil.corp:88                       Key Distribution Center (KDC) address [$ESCOBAR_PROXY_KERBEROS_KDC_ADDR]
-      --proxy.kerberos.kpasswd-server=kpasswd.evil.corp:464       Server address where all the password changes are performed [$ESCOBAR_PROXY_KERBEROS_KPASSWD_SERVER_ADDR]
+      /proxy.kerberos.realm:EVIL.CORP                             Kerberos realm [%ESCOBAR_PROXY_KERBEROS_REALM%]
+      /proxy.kerberos.kdc:kdc.evil.corp:88                        Key Distribution Center (KDC) address [%ESCOBAR_PROXY_KERBEROS_KDC%]
 
 Server timeouts:
-      --proxy.timeouts.server.read=                               HTTP server read timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_SERVER_READ]
-      --proxy.timeouts.server.read-header=                        HTTP server read header timeout (default: 30s) [$ESCOBAR_PROXY_TIMEOUTS_SERVER_READ_HEADER]
-      --proxy.timeouts.server.write=                              HTTP server write timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_SERVER_WRITE]
-      --proxy.timeouts.server.idle=                               HTTP server idle timeout (default: 1m) [$ESCOBAR_PROXY_TIMEOUTS_SERVER_IDLE]
+      /proxy.timeouts.server.read:                                HTTP server read timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_SERVER_READ%]
+      /proxy.timeouts.server.read-header:                         HTTP server read header timeout (default: 30s) [%ESCOBAR_PROXY_TIMEOUTS_SERVER_READ_HEADER%]
+      /proxy.timeouts.server.write:                               HTTP server write timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_SERVER_WRITE%]
+      /proxy.timeouts.server.idle:                                HTTP server idle timeout (default: 1m) [%ESCOBAR_PROXY_TIMEOUTS_SERVER_IDLE%]
 
 Client timeouts:
-      --proxy.timeouts.client.read=                               Client read timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_CLIENT_READ]
-      --proxy.timeouts.client.write=                              Client write timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_CLIENT_WRITE]
-      --proxy.timeouts.client.keepalive-period=                   Client keepalive period (default: 1m) [$ESCOBAR_PROXY_TIMEOUTS_CLIENT_KEEPALIVE_PERIOD]
+      /proxy.timeouts.client.read:                                Client read timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_CLIENT_READ%]
+      /proxy.timeouts.client.write:                               Client write timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_CLIENT_WRITE%]
+      /proxy.timeouts.client.keepalive-period:                    Client keepalive period (default: 1m) [%ESCOBAR_PROXY_TIMEOUTS_CLIENT_KEEPALIVE_PERIOD%]
 
 Downstream Proxy timeouts:
-      --proxy.timeouts.downstream.dial=                           Downstream proxy dial timeout (default: 10s) [$ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_DIAL]
-      --proxy.timeouts.downstream.read=                           Downstream proxy read timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_READ]
-      --proxy.timeouts.downstream.write=                          Downstream proxy write timeout (default: 0s) [$ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_WRITE]
-      --proxy.timeouts.downstream.keepalive-period=               Downstream proxy keepalive period (default: 1m) [$ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_KEEPALIVE_PERIOD]
+      /proxy.timeouts.downstream.dial:                            Downstream proxy dial timeout (default: 10s) [%ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_DIAL%]
+      /proxy.timeouts.downstream.read:                            Downstream proxy read timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_READ%]
+      /proxy.timeouts.downstream.write:                           Downstream proxy write timeout (default: 0s) [%ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_WRITE%]
+      /proxy.timeouts.downstream.keepalive-period:                Downstream proxy keepalive period (default: 1m) [%ESCOBAR_PROXY_TIMEOUTS_DOWNSTREAM_KEEPALIVE_PERIOD%]
 
 Static args:
-      --static.addr=                                              Static server address (default: localhost:3129) [$ESCOBAR_STATIC_ADDR]
+      /static.addr:                                               Static server address (default: localhost:3129) [%ESCOBAR_STATIC_ADDR%]
 
 Help Options:
-  -h, --help                                                      Show this help message
+  /?                                                              Show this help message
+  /h, /help                                                       Show this help message
 ```
 
 ### Keytab-file support
-I could also suggest to use keytab-files instead of passing plain password. It's safer and less accessible.
-Below you can read about recommended setup.
+Buy default I recommend to use `auto` mode that use Windows SSPI or Linux ccache.
+But you could also use `manual` mode to pass keytab-files instead of passing plain password.
+It's safer and less accessible. Below you can read about recommended setup.
 
 1. Create service user `escobar` and lock it:
 
