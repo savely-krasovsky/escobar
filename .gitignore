@@ -1,9 +1,11 @@
 # Goland (IDEA)
-.idea
+/.idea
 
 # Personal testing config
 configs/keytabs/personal.keytab
 configs/personal.env
 
 # Binaries
-bin/
+/dist/
+escobar
+escobar.exe

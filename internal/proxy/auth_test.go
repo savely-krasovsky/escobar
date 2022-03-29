@@ -50,6 +50,7 @@ func TestProxy_setProxyAuthorizationHeader(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// nolint:errcheck
 		defer patch.Unpatch()
 		if err := p.setProxyAuthorizationHeader(req); err != nil {
 			assert.NoError(t, err)

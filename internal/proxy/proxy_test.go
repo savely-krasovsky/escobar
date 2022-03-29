@@ -99,6 +99,7 @@ func TestNewProxy(t *testing.T) {
 	patch := monkey.Patch(httputil.NewForwardingProxy, func() *httputil.ReverseProxy {
 		return rp
 	})
+	// nolint:errcheck
 	defer patch.Unpatch()
 
 	expected := &Proxy{

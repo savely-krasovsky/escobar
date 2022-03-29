@@ -1,0 +1,58 @@
+---
+project_name: escobar
+
+release:
+  github:
+    owner: L11R
+    name: escobar
+
+builds:
+  - binary: escobar
+    goos:
+      - darwin
+      - windows
+      - linux
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - 386
+      - ppc64le
+      - s390x
+      - mips64
+      - mips64le
+      - riscv64
+    goarm:
+      - 6
+      - 7
+    gomips:
+      - hardfloat
+    env:
+      - CGO_ENABLED=0
+    ignore:
+      - goos: darwin
+        goarch: 386
+      - goos: freebsd
+        goarch: arm64
+    main: ./cmd/escobar/main.go
+    flags:
+      - -trimpath
+    ldflags: -s -w -X $(PROJECT)/internal/version.Version={{.Version}} -X $(PROJECT)/internal/version.Commit={{.ShortCommit}}
+
+archives:
+  - format: tar.gz
+    wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    files:
+      - LICENSE
+      - README.md
+
+snapshot:
+  name_template: SNAPSHOT-{{ .Commit }}
+
+checksum:
+  name_template: '{{ .ProjectName }}-{{ .Version }}-checksums.txt'

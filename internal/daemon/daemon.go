@@ -33,15 +33,7 @@ type Daemon struct {
 }
 
 func New() *Daemon {
-	d := &Daemon{
-		SystemLogger: nil,
-		logger:       nil,
-		config:       nil,
-		proxy:        nil,
-		static:       nil,
-	}
-
-	return d
+	return &Daemon{}
 }
 
 func (d *Daemon) Start(svc service.Service) error {
@@ -167,6 +159,7 @@ func (d *Daemon) run(svc service.Service) {
 	go func() {
 		if err := <-errChan; err != nil {
 			logger.Error("Error while running proxy!", zap.Error(err))
+			// nolint:errcheck
 			d.Stop(nil)
 			os.Exit(1)
 		}

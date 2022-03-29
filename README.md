@@ -1,4 +1,6 @@
 # Escobar
+[![Go](https://github.com/L11R/escobar/actions/workflows/go.yml/badge.svg)](https://github.com/L11R/escobar/actions/workflows/go.yml)
+
 This is an alternative to `cntlm` utility, but written in Go. It's aim to be simpler and easier to customize
 for own needs. Mainly tested against McAfee Web Gateway. Tested in Linux, macOS and Windows, but should work on other
 OS like Android.

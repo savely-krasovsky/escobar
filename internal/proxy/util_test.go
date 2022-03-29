@@ -6,7 +6,6 @@ package proxy
 
 import (
 	"bytes"
-	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -15,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
-
-// Copyright 2015 Google Inc. All rights reserved.
 
 func Test_newResponse(t *testing.T) {
 	req, err := http.NewRequest("GET", "http://www.example.com", nil)
@@ -46,9 +43,6 @@ func Test_newResponse(t *testing.T) {
 	}
 	if res.Header == nil {
 		t.Error("res.Header: got nil, want header")
-	}
-	if _, ok := res.Body.(io.ReadCloser); !ok {
-		t.Error("res.Body.(io.ReadCloser): got !ok, want ok")
 	}
 	if got, want := res.Request, req; got != want {
 		t.Errorf("res.Request: got %v, want %v", got, want)

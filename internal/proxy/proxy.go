@@ -128,6 +128,7 @@ func (p *Proxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		zap.String("user_agent", req.UserAgent()),
 		zap.String("uri", req.RequestURI),
 	)
+	// nolint:staticcheck
 	req = req.WithContext(context.WithValue(context.Background(), LogEntryCtx, logger))
 
 	defer func() {

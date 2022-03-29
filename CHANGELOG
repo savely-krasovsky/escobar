@@ -1,3 +1,9 @@
+Changes with Escobar 3.0.0, 29 March 2022
+    *) Feature: service support (Windows tested, Unix and macOS should work too)
+    *) Feature: auto mode support for Linux (macOS not supported yet)
+    *) Change: code simplification and dependencies update
+    *) Bugfix: many small fixes
+
 Changes with Escobar 2.2.0, 28 January 2020
     *) Change: Windows now require only few arguments
     *) Bugfix: Initialization logic changed, start is improved
