@@ -259,11 +259,19 @@ func (p *Proxy) https(rw http.ResponseWriter, req *http.Request) {
 func (p *Proxy) connectAndCopy(conn net.Conn, brw *bufio.ReadWriter, req *http.Request, reconnected bool) {
 	logger := req.Context().Value(LogEntryCtx).(*zap.Logger)
 
+	retries := 0
+ProxyDialRetry:
 	// Open connection with downstream proxy
 	pconn, err := net.DialTimeout("tcp", p.config.DownstreamProxyURL.Host, p.config.Timeouts.DownstreamProxy.DialTimeout)
 	if err != nil {
+		if retries < p.config.DownstreamProxyDialRetries {
+			logger.Error("Connection to downstream proxy failed.", zap.Error(err))
+			retries++
+			time.Sleep(1 * time.Second)  
+			logger.Debug("Downstream proxy dial retry", zap.Int("retries", retries))
+			goto ProxyDialRetry
+		}
 		httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot connect to downstream proxy: %w", err))
-		return
 	}
 	defer func() {
 		if err := pconn.Close(); err != nil {

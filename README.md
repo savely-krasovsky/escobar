@@ -36,6 +36,7 @@ After installing service, it will create config file from CLI parameters:
 	"proxy": {
 		"addr": "localhost:3128",
 		"downstreamProxyURL": "http://proxy.evil.corp:9090/",
+                "downstreamProxyDialRetries": 0,
 		"downstreamProxyAuth": {
 			"user": "",
 			"password": "",
@@ -97,6 +98,7 @@ Application Options:
 Proxy args:
   /a, /proxy.addr:                                                Proxy address (default: localhost:3128) [%ESCOBAR_PROXY_ADDR%]
   /d, /proxy.downstream-proxy-url:http://proxy.evil.corp:9090     Downstream proxy URL [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_URL%]
+  /r, /proxy.downstream-proxy-dial-retries:0                      Downstream proxy dial retries (default: 0) [%ESCOBAR_PROXY_DOWNSTREAM_PROXY_DIAL_RETRIES%]
       /proxy.ping-url:                                            URL to ping anc check credentials validity (default: https://www.google.com/) [%ESCOBAR_PROXY_PING_URL%]
   /m, /proxy.mode:                                                Escobar mode (default: auto) [%ESCOBAR_PROXY_MODE%]
 
