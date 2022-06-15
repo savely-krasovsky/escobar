@@ -36,6 +36,7 @@ type Config struct {
 
 	DownstreamProxyURLString string   `short:"d" long:"downstream-proxy-url" env:"DOWNSTREAM_PROXY_URL" description:"Downstream proxy URL" value-name:"http://proxy.evil.corp:9090" required:"yes" json:"downstreamProxyURL"`
 	DownstreamProxyURL       *url.URL `no-flag:"yes" json:"-"`
+        DownstreamProxyDialRetries int `short:"r" long:"downstream-proxy-dial-retries" env:"DOWNSTREAM_PROXY_DIAL_RETRIES" description:"Downstream proxy dial retries" value-name:"0" required:"no" default:"0" json:"downstreamProxyDialRetries"`
 
 	DownstreamProxyAuth DownstreamProxyAuth `group:"Downstream Proxy authentication" namespace:"downstream-proxy-auth" env-namespace:"DOWNSTREAM_PROXY_AUTH" json:"downstreamProxyAuth"`
 
