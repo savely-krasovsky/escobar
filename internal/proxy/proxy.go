@@ -97,7 +97,7 @@ func (p *Proxy) CheckAuth() (bool, error) {
 
 	repeat := true
 
-again:
+Again:
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("cannot do request: %w", err)
@@ -111,7 +111,7 @@ again:
 
 	if resp.StatusCode == http.StatusProxyAuthRequired && repeat {
 		repeat = false
-		goto again
+		goto Again
 	}
 
 	if resp.StatusCode == http.StatusOK {
@@ -267,11 +267,14 @@ ProxyDialRetry:
 		if retries < p.config.DownstreamProxyDialRetries {
 			logger.Error("Connection to downstream proxy failed.", zap.Error(err))
 			retries++
-			time.Sleep(1 * time.Second)  
-			logger.Debug("Downstream proxy dial retry", zap.Int("retries", retries))
+			time.Sleep(1 * time.Second)
+			logger.Debug("Downstream proxy dial retry.", zap.Int("retries", retries))
+
 			goto ProxyDialRetry
 		}
+
 		httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot connect to downstream proxy: %w", err))
+		return
 	}
 	defer func() {
 		if err := pconn.Close(); err != nil {
