@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/L11R/httputil"
+	"golang.org/x/net/http/httpproxy"
 
 	"github.com/jcmturner/gokrb5/v8/client"
 	"go.uber.org/zap"
@@ -29,11 +30,12 @@ const (
 )
 
 type Proxy struct {
-	logger    *zap.Logger
-	config    *Config
-	krb5cl    *client.Client
-	server    *http.Server
-	httpProxy *httputil.ReverseProxy
+	logger      *zap.Logger
+	config      *Config
+	krb5cl      *client.Client
+	server      *http.Server
+	httpProxy   *httputil.ReverseProxy
+	noProxyFunc func(reqUrl *url.URL) (*url.URL, error)
 }
 
 // NewProxy returns Proxy instance
@@ -60,6 +62,13 @@ func NewProxy(logger *zap.Logger, config *Config, krb5cl *client.Client) *Proxy 
 		WriteTimeout:      config.Timeouts.Server.WriteTimeout,
 		IdleTimeout:       config.Timeouts.Server.IdleTimeout,
 	}
+
+	noProxyConfig := &httpproxy.Config{
+		HTTPProxy:  config.AddrString,
+		HTTPSProxy: config.AddrString,
+		NoProxy:    config.NoProxy,
+	}
+	p.noProxyFunc = noProxyConfig.ProxyFunc()
 
 	return p
 }
@@ -144,7 +153,9 @@ func (p *Proxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	logger.Debug("Request started")
 
-	if req.URL.Scheme == "http" {
+	if u, err := p.noProxyFunc(req.URL); u == nil && err == nil {
+		p.httpProxy.ServeHTTP(rw, req)
+	} else if req.URL.Scheme == "http" {
 		p.http(rw, req)
 	} else {
 		p.https(rw, req)
