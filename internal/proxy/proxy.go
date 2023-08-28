@@ -155,9 +155,9 @@ func (p *Proxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	if u, err := p.noProxyFunc(req.URL); u == nil && err == nil {
 		p.httpProxy.ServeHTTP(rw, req)
-	} else if req.URL.Scheme == "http" {
+	} else if u != nil && req.URL.Scheme == "http" {
 		p.http(rw, req)
-	} else {
+	} else if u != nil {
 		p.https(rw, req)
 	}
 
