@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -30,12 +29,13 @@ const (
 )
 
 type Proxy struct {
-	logger      *zap.Logger
-	config      *Config
-	krb5cl      *client.Client
-	server      *http.Server
-	httpProxy   *httputil.ReverseProxy
-	noProxyFunc func(reqUrl *url.URL) (*url.URL, error)
+	logger          *zap.Logger
+	config          *Config
+	krb5cl          *client.Client
+	server          *http.Server
+	httpProxy       *httputil.ReverseProxy
+	httpDirectProxy *httputil.ReverseProxy
+	noProxyFunc     func(reqUrl *url.URL) (*url.URL, error)
 }
 
 // NewProxy returns Proxy instance
@@ -43,18 +43,24 @@ func NewProxy(logger *zap.Logger, config *Config, krb5cl *client.Client) *Proxy 
 	fp := httputil.NewForwardingProxy()
 	fp.ErrorHandler = httpErrorHandler
 
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.Proxy = http.ProxyURL(config.DownstreamProxyURL)
+
+	fp.Transport = tr
+
 	p := &Proxy{
-		logger:    logger,
-		config:    config,
-		krb5cl:    krb5cl,
-		httpProxy: fp,
+		logger:          logger,
+		config:          config,
+		krb5cl:          krb5cl,
+		httpProxy:       fp,
+		httpDirectProxy: httputil.NewForwardingProxy(),
 	}
 
 	p.httpProxy.ErrorLog = zap.NewStdLog(logger)
 	p.server = &http.Server{
 		Addr:    config.Addr.String(),
 		Handler: p,
-		// Disable HTTP/2.
+		// Disable HTTP/2 otherwise hijacking won't work
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 		// Timeouts
 		ReadTimeout:       config.Timeouts.Server.ReadTimeout,
@@ -83,11 +89,11 @@ func (p *Proxy) CheckAuth() (bool, error) {
 	// We need http client with custom transport
 	httpClient := http.DefaultClient
 
-	tr := http.DefaultTransport
+	tr := http.DefaultTransport.(*http.Transport).Clone()
 	// Pass our newly deployed local proxy
-	tr.(*http.Transport).Proxy = http.ProxyURL(u)
+	tr.Proxy = http.ProxyURL(u)
 	// We check it against corporate proxy, so it usually use MITM
-	tr.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	httpClient.Transport = tr
 
@@ -114,7 +120,7 @@ Again:
 	//noinspection ALL
 	defer resp.Body.Close()
 
-	if _, err := ioutil.ReadAll(resp.Body); err != nil {
+	if _, err := io.ReadAll(resp.Body); err != nil {
 		return false, fmt.Errorf("cannot read body: %w", err)
 	}
 
@@ -153,12 +159,32 @@ func (p *Proxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	logger.Debug("Request started")
 
-	if u, err := p.noProxyFunc(req.URL); u == nil && err == nil {
-		p.httpProxy.ServeHTTP(rw, req)
-	} else if u != nil && req.URL.Scheme == "http" {
-		p.http(rw, req)
-	} else if u != nil {
-		p.https(rw, req)
+	reqURL := *req.URL
+	if req.Method == http.MethodConnect {
+		reqURL.Scheme = "https"
+	}
+	isInNoProxyList := false
+	if u, err := p.noProxyFunc(&reqURL); u == nil && err == nil {
+		isInNoProxyList = true
+	}
+
+	if req.URL.Scheme == "http" {
+		if !isInNoProxyList {
+			if err := p.setProxyAuthorizationHeader(req); err != nil {
+				httpErrorHandler(rw, req, fmt.Errorf("cannot set authorization header: %w", err))
+				return
+			}
+
+			p.httpProxy.ServeHTTP(rw, req)
+		} else {
+			p.httpDirectProxy.ServeHTTP(rw, req)
+		}
+	} else {
+		if !isInNoProxyList {
+			p.https(rw, req)
+		} else {
+			p.httpsDirect(rw, req)
+		}
 	}
 
 	logger.Debug("Request completed")
@@ -174,18 +200,6 @@ func httpErrorHandler(rw http.ResponseWriter, req *http.Request, err error) {
 
 	logger.Error("http: proxy error", zap.Error(err))
 	rw.WriteHeader(http.StatusBadGateway)
-}
-
-func (p *Proxy) http(rw http.ResponseWriter, req *http.Request) {
-	tr := http.DefaultTransport
-	tr.(*http.Transport).Proxy = http.ProxyURL(p.config.DownstreamProxyURL)
-
-	if err := p.setProxyAuthorizationHeader(req); err != nil {
-		httpErrorHandler(rw, req, fmt.Errorf("cannot set authorization header: %w", err))
-		return
-	}
-
-	p.httpProxy.ServeHTTP(rw, req)
 }
 
 func httpsErrorHandler(rw http.ResponseWriter, req *http.Request, err error) {
@@ -264,6 +278,100 @@ func (p *Proxy) https(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	p.connectAndCopy(conn, brw, req, false)
+}
+
+func (p *Proxy) httpsDirect(rw http.ResponseWriter, req *http.Request) {
+	logger := req.Context().Value(LogEntryCtx).(*zap.Logger)
+
+	// Check that we are handling CONNECT
+	if req.Method != http.MethodConnect {
+		http.Error(rw, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Respond on CONNECT
+	rw.WriteHeader(http.StatusOK)
+
+	// Take control of the connection
+	hj, ok := rw.(http.Hijacker)
+	if !ok {
+		httpsErrorHandler(rw, req, fmt.Errorf("hijacking is not supported"))
+		return
+	}
+
+	conn, brw, err := hj.Hijack()
+	if err != nil {
+		httpsErrorHandler(rw, req, fmt.Errorf("hijack failed: %w", err))
+		return
+	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			logger.Error("Cannot close connection", zap.Error(err))
+		}
+	}()
+
+	// Set Keep-Alive
+	if tconn, ok := conn.(*net.TCPConn); ok {
+		if err := tconn.SetKeepAlive(true); err != nil {
+			httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot turn on keep-alive: %w", err))
+			return
+		}
+		if err := tconn.SetKeepAlivePeriod(p.config.Timeouts.Client.KeepAlivePeriod); err != nil {
+			httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot set keep-alive period: %w", err))
+			return
+		}
+	}
+
+	// Set client connection timeouts
+	now := time.Now()
+	if p.config.Timeouts.Client.ReadTimeout.Nanoseconds() != 0 {
+		if err := conn.SetReadDeadline(now.Add(p.config.Timeouts.Client.ReadTimeout)); err != nil {
+			httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot set read timeout for connection with client: %w", err))
+			return
+		}
+	}
+	if p.config.Timeouts.Client.WriteTimeout.Nanoseconds() != 0 {
+		if err := conn.SetWriteDeadline(now.Add(p.config.Timeouts.Client.WriteTimeout)); err != nil {
+			httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot set write timeout for connection with client: %w", err))
+			return
+		}
+	}
+
+	destConn, err := net.DialTimeout("tcp", req.Host, p.config.Timeouts.DownstreamProxy.DialTimeout)
+	if err != nil {
+		httpsErrorHijackedHandler(brw, req, fmt.Errorf("cannot connect to the requested host: %w", err))
+		return
+	}
+	defer func() {
+		if err := destConn.Close(); err != nil {
+			logger.Error("Cannot close connection", zap.Error(err))
+		}
+	}()
+
+	// Start traffic copying inside newly created tunnel
+	errc := make(chan error, 1)
+	cc := connectCopier{
+		logger:  logger,
+		client:  conn,
+		backend: destConn,
+	}
+	go cc.copyToBackend(errc)
+	go cc.copyFromBackend(errc)
+
+	logger.Debug("CONNECT tunnel opened")
+	defer logger.Debug("CONNECT tunnel closed")
+
+	err = <-errc
+	if err == nil {
+		err = <-errc
+	}
+
+	if err != nil {
+		httpsErrorHijackedHandler(brw, req, fmt.Errorf("traffic copying inside tunnel failed: %w", err))
+		return
+	}
+
+	logger.Debug("Traffic copied successfully")
 }
 
 // connectAndCopy connects to downstream proxy, authenticates if there is a need and copies traffic between connections
