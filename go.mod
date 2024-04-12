@@ -8,7 +8,7 @@ require (
 	github.com/L11R/httputil v0.0.0-20220615134631-4431dfe56a3f
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484
 	github.com/elazarl/goproxy/ext v0.0.0-20190711103511-473e67f1d7d2
-	github.com/go-chi/chi/v5 v5.0.11
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/kardianos/service v1.2.2
